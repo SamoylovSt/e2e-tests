@@ -9,6 +9,24 @@ e2e-tests
 - Spring Data JDBC
 - Spring Kafka
 
+### Секреты
+
+Перед запуском тестов добавьте секреты в `~/.gradle/gradle.properties`:
+
+```properties
+telegramBotToken=<токен телеграм-бота>
+googleApplicationCredentialsJson=<JSON сервисного аккаунта Google>
+serviceImageTag=dev
+```
+
+Gradle передаёт эти значения как переменные окружения в тестовый процесс.
+
+### Запуск тестов
+
+```bash
+./gradlew test
+```
+
 ### Локальный запуск и тестирование
 - Через консоль
 ```bash
