@@ -33,8 +33,19 @@ dependencies {
 	// Tests
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// Testcontainers
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'org.testcontainers:kafka'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+	timeout = Duration.ofMinutes(15)
+
+	environment 'TELEGRAM_BOT_TOKEN', findProperty('telegramBotToken') ?: ''
+	environment 'GOOGLE_APPLICATION_CREDENTIALS_JSON', findProperty('googleApplicationCredentialsJson') ?: ''
+	environment 'SERVICE_IMAGE_TAG', findProperty('serviceImageTag') ?: 'dev'
 }
