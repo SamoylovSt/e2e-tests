@@ -8,18 +8,34 @@ e2e-tests
 - Spring Boot 3
 - Spring Data JDBC
 - Spring Kafka
+- Testcontainers
 
 ### Секреты
 
-Перед запуском тестов добавьте секреты в `~/.gradle/gradle.properties`:
+Тесты читают секреты через переменные окружения. Перед запуском задайте:
+
+| Переменная | Описание |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | Токен Telegram-бота |
+| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | JSON сервисного аккаунта Google |
+
+**Локально** — задайте переменные в окружении системы или в конфигурации запуска IDE.
+
+**В CI** — задайте через секреты пайплайна.
+
+### Тег образов сервисов
+
+По умолчанию используется тег `dev`. Чтобы переопределить, добавьте в `~/.gradle/gradle.properties`:
 
 ```properties
-telegramBotToken=<токен телеграм-бота>
-googleApplicationCredentialsJson=<JSON сервисного аккаунта Google>
 serviceImageTag=dev
 ```
 
-Gradle передаёт эти значения как переменные окружения в тестовый процесс.
+Или передайте при запуске:
+
+```bash
+./gradlew test -PserviceImageTag=my-tag
+```
 
 ### Запуск тестов
 
@@ -27,15 +43,16 @@ Gradle передаёт эти значения как переменные ок
 ./gradlew test
 ```
 
-### Локальный запуск и тестирование
-- Через консоль
+### Локальный запуск приложения
+
+- Через консоль:
 ```bash
-    ./gradlew bootRun --args='--spring.profiles.active=ide'
+./gradlew bootRun --args='--spring.profiles.active=ide'
 ```
 
-- В IntelliJ IDEA
-    * Run -> Edit Configurations....
-    * В поле Active profiles введите имя профиля: `ide`
+- В IntelliJ IDEA:
+    * Run → Edit Configurations...
+    * В поле Active profiles введите: `ide`
 
 ### Ссылки на репозиторий документации
 - [Системная аналитика e2e-tests]
