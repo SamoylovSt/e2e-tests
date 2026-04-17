@@ -25,17 +25,23 @@ e2e-tests
 
 ### Тег образов сервисов
 
-По умолчанию используется тег `dev`. Чтобы переопределить, добавьте в `~/.gradle/gradle.properties`:
-
-```properties
-serviceImageTag=dev
-```
-
-Или передайте при запуске:
+Тег задаётся через переменную окружения `TESTCONTAINER_DOCKER_IMAGES_TAG`. Если переменная не задана — запуск завершится ошибкой.
 
 ```bash
-./gradlew test -PserviceImageTag=my-tag
+TESTCONTAINER_DOCKER_IMAGES_TAG=dev ./gradlew test
 ```
+
+Для отдельного сервиса можно переопределить тег через переменную вида `<SERVICE>_DOCKER_IMAGE_TAG`. Если она задана — используется она, иначе берётся `TESTCONTAINER_DOCKER_IMAGES_TAG`.
+
+| Сервис | Переменная |
+|---|---|
+| gateway | `GATEWAY_DOCKER_IMAGE_TAG` |
+| auth-service | `AUTH_SERVICE_DOCKER_IMAGE_TAG` |
+| data-importer | `DATA_IMPORTER_DOCKER_IMAGE_TAG` |
+| profile-service | `PROFILE_SERVICE_DOCKER_IMAGE_TAG` |
+| project-service | `PROJECT_SERVICE_DOCKER_IMAGE_TAG` |
+| mentor-service | `MENTOR_SERVICE_DOCKER_IMAGE_TAG` |
+| job-market-analytics-service | `JOB_MARKET_ANALYTICS_SERVICE_DOCKER_IMAGE_TAG` |
 
 ### Запуск тестов
 
