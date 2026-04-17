@@ -61,4 +61,4 @@ TESTCONTAINER_DOCKER_IMAGES_TAG=dev ./gradlew test
     * В поле Active profiles введите: `ide`
 
 ### Ссылки на репозиторий документации
-- [Системная аналитика e2e-tests]
+- [Системная аналитика e2e-tests](https://github.com/it-mentor-community-platform/meta/blob/main/system-analytics/e2e-tests.md)
