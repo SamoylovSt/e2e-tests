@@ -36,7 +36,4 @@ out/
 ### VS Code ###
 .vscode/
 
-### Secrets ###
-.env
-/.claude/
-/CLAUDE.md
+
