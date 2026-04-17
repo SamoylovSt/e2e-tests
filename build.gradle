@@ -44,6 +44,4 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 	timeout = Duration.ofMinutes(15)
-
-	environment 'SERVICE_IMAGE_TAG', findProperty('serviceImageTag') ?: 'dev'
 }
