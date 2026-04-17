@@ -6,9 +6,11 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.PropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -17,8 +19,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import org.springframework.core.env.Environment;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 
 @TestConfiguration(proxyBeanMethods = false)
 @SuppressWarnings("resource")
+@PropertySource("classpath:docker-image-tags.properties")
+@EnableConfigurationProperties(DockerImageTagsProperties.class)
 class TestcontainersConfig {
 
     private static final String GHCR = "ghcr.io/it-mentor-community-platform";
@@ -37,7 +39,7 @@ class TestcontainersConfig {
     );
 
     @Autowired
-    private Environment environment;
+    private DockerImageTagsProperties tags;
 
     @Value("${TELEGRAM_BOT_TOKEN}")
     private String telegramBotToken;
@@ -64,18 +66,17 @@ class TestcontainersConfig {
 
     @Bean
     @ServiceConnection
-    KafkaContainer kafka(Network network) {
-        return new KafkaContainer(DockerImageName.parse("apache/kafka:3.7.0"))
+    KafkaContainer kafka(Network network) throws Exception {
+        KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("apache/kafka:3.7.0"))
             .withNetwork(network)
             .withNetworkAliases("kafka")
             .withListener("kafka:19092");
+        kafka.start();
+        createTopics(kafka);
+        return kafka;
     }
 
-    @Bean
-    Boolean kafkaTopicsReady(KafkaContainer kafka) throws Exception {
-        if (!kafka.isRunning()) {
-            kafka.start();
-        }
+    private void createTopics(KafkaContainer kafka) throws Exception {
         Properties props = new Properties();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
         try (AdminClient adminClient = AdminClient.create(props)) {
@@ -85,61 +86,55 @@ class TestcontainersConfig {
                     .toList()
             ).all().get(30, TimeUnit.SECONDS);
         }
-        return Boolean.TRUE;
     }
 
     @Bean
     GenericContainer<?> gateway(Network network) {
-        return springService("gateway/gateway", "GATEWAY_DOCKER_IMAGE_TAG", network);
+        return springService("gateway/gateway", tags.gateway(), network);
     }
 
     @Bean
     GenericContainer<?> authService(Network network, PostgreSQLContainer<?> postgres) {
-        return springService("auth-service/auth-service", "AUTH_SERVICE_DOCKER_IMAGE_TAG", network)
+        return springService("auth-service/auth-service", tags.authService(), network)
             .withEnv("TELEGRAM_BOT_TOKEN", telegramBotToken)
             .dependsOn(postgres);
     }
 
     @Bean
-    GenericContainer<?> dataImporter(Network network, PostgreSQLContainer<?> postgres,
-                                     KafkaContainer kafka, Boolean kafkaTopicsReady) {
-        return springService("data-importer/data-importer", "DATA_IMPORTER_DOCKER_IMAGE_TAG", network)
+    GenericContainer<?> dataImporter(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
+        return springService("data-importer/data-importer", tags.dataImporter(), network)
             .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
             .dependsOn(postgres, kafka);
     }
 
     @Bean
-    GenericContainer<?> profileService(Network network, PostgreSQLContainer<?> postgres,
-                                       KafkaContainer kafka, Boolean kafkaTopicsReady) {
-        return springService("profile-service/profile-service", "PROFILE_SERVICE_DOCKER_IMAGE_TAG", network)
+    GenericContainer<?> profileService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
+        return springService("profile-service/profile-service", tags.profileService(), network)
             .dependsOn(postgres, kafka);
     }
 
     @Bean
-    GenericContainer<?> projectService(Network network, PostgreSQLContainer<?> postgres,
-                                       KafkaContainer kafka, Boolean kafkaTopicsReady) {
-        return springService("project-service/project-service", "PROJECT_SERVICE_DOCKER_IMAGE_TAG", network)
+    GenericContainer<?> projectService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
+        return springService("project-service/project-service", tags.projectService(), network)
             .dependsOn(postgres, kafka);
     }
 
     @Bean
-    GenericContainer<?> mentorService(Network network, PostgreSQLContainer<?> postgres,
-                                      KafkaContainer kafka, Boolean kafkaTopicsReady) {
-        return springService("mentor-service/mentor-service", "MENTOR_SERVICE_DOCKER_IMAGE_TAG", network)
+    GenericContainer<?> mentorService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
+        return springService("mentor-service/mentor-service", tags.mentorService(), network)
             .dependsOn(postgres, kafka);
     }
 
     @Bean
-    GenericContainer<?> jobMarketAnalytics(Network network, PostgreSQLContainer<?> postgres,
-                                           KafkaContainer kafka, Boolean kafkaTopicsReady) {
+    GenericContainer<?> jobMarketAnalytics(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("job-market-analytics-service/job-market-analytics-service",
-            "JOB_MARKET_ANALYTICS_SERVICE_DOCKER_IMAGE_TAG", network)
+            tags.jobMarketAnalyticsService(), network)
             .dependsOn(postgres, kafka);
     }
 
-    private GenericContainer<?> springService(String imagePath, String tagVar, Network network) {
+    private GenericContainer<?> springService(String imagePath, String tag, Network network) {
         String serviceName = imagePath.substring(imagePath.lastIndexOf('/') + 1);
-        return new GenericContainer<>(GHCR + "/" + imagePath + ":" + resolveTag(tagVar))
+        return new GenericContainer<>(GHCR + "/" + imagePath + ":" + tag)
             .withNetwork(network)
             .withEnv("SPRING_PROFILES_ACTIVE", "local-stack")
             .withEnv("SPRING_KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
@@ -151,19 +146,5 @@ class TestcontainersConfig {
                     .forStatusCode(200)
                     .withStartupTimeout(Duration.ofMinutes(5))
             );
-    }
-
-    private String resolveTag(String perServiceVar) {
-        String tag = environment.getProperty(perServiceVar);
-        if (tag != null && !tag.isBlank()) {
-            return tag;
-        }
-        tag = environment.getProperty("TESTCONTAINER_DOCKER_IMAGES_TAG");
-        if (tag == null || tag.isBlank()) {
-            throw new IllegalStateException(
-                "Не задана ни переменная " + perServiceVar + ", ни TESTCONTAINER_DOCKER_IMAGES_TAG"
-            );
-        }
-        return tag;
     }
 }
