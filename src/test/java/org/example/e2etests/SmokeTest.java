@@ -10,16 +10,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SmokeTest extends E2eTestBase {
 
-    @Autowired PostgreSQLContainer<?> postgres;
-    @Autowired KafkaContainer kafka;
-    @Autowired GenericContainer<?> gateway;
-    @Autowired GenericContainer<?> authService;
-    @Autowired GenericContainer<?> dataImporter;
-    @Autowired GenericContainer<?> profileService;
-    @Autowired GenericContainer<?> projectService;
-    @Autowired GenericContainer<?> mentorService;
-    @Autowired GenericContainer<?> jobMarketAnalytics;
-
     @Test
     void infrastructureContainersAreRunning() {
         assertThat(postgres.isRunning()).as("PostgreSQL").isTrue();

@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 
 @TestConfiguration(proxyBeanMethods = false)
 @SuppressWarnings("resource")
-@PropertySource("classpath:docker-image-tags.properties")
 @EnableConfigurationProperties(DockerImageTagsProperties.class)
 class TestcontainersConfig {
 
