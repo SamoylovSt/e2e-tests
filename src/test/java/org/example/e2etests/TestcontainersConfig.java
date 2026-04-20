@@ -21,6 +21,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -37,6 +38,9 @@ class TestcontainersConfig {
         "auth.user.authenticated",
         "projects.project.created"
     );
+
+    @Value("${TESTCONTAINER_DOCKER_IMAGES_TAG}")
+    private String defaultDockerImageTag;
 
     @Autowired
     private DockerImageTagsProperties tags;
@@ -90,46 +94,52 @@ class TestcontainersConfig {
 
     @Bean
     GenericContainer<?> gateway(Network network) {
-        return springService("gateway/gateway", tags.gateway(), network);
+        return springService("gateway/gateway", resolveTag(tags.getGateway()), network);
     }
 
     @Bean
     GenericContainer<?> authService(Network network, PostgreSQLContainer<?> postgres) {
-        return springService("auth-service/auth-service", tags.authService(), network)
+        return springService("auth-service/auth-service", resolveTag(tags.getAuthService()), network)
             .withEnv("TELEGRAM_BOT_TOKEN", telegramBotToken)
             .dependsOn(postgres);
     }
 
     @Bean
     GenericContainer<?> dataImporter(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
-        return springService("data-importer/data-importer", tags.dataImporter(), network)
+        return springService("data-importer/data-importer", resolveTag(tags.getDataImporter()), network)
             .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
             .dependsOn(postgres, kafka);
     }
 
     @Bean
     GenericContainer<?> profileService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
-        return springService("profile-service/profile-service", tags.profileService(), network)
+        return springService("profile-service/profile-service", resolveTag(tags.getProfileService()), network)
             .dependsOn(postgres, kafka);
     }
 
     @Bean
     GenericContainer<?> projectService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
-        return springService("project-service/project-service", tags.projectService(), network)
+        return springService("project-service/project-service", resolveTag(tags.getProjectService()), network)
             .dependsOn(postgres, kafka);
     }
 
     @Bean
     GenericContainer<?> mentorService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
-        return springService("mentor-service/mentor-service", tags.mentorService(), network)
+        return springService("mentor-service/mentor-service", resolveTag(tags.getMentorService()), network)
             .dependsOn(postgres, kafka);
     }
 
     @Bean
     GenericContainer<?> jobMarketAnalytics(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("job-market-analytics-service/job-market-analytics-service",
-            tags.jobMarketAnalyticsService(), network)
+            resolveTag(tags.getJobMarketAnalyticsService()), network)
             .dependsOn(postgres, kafka);
+    }
+
+    private String resolveTag(String serviceTag){
+        return Optional.ofNullable(serviceTag)
+                .filter(t -> !t.isBlank())
+                .orElse(defaultDockerImageTag);
     }
 
     private GenericContainer<?> springService(String imagePath, String tag, Network network) {
