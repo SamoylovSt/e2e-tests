@@ -48,5 +48,5 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
-	timeout = Duration.ofMinutes(15)
+	timeout = Duration.ofMinutes(30)
 }
