@@ -1,6 +1,8 @@
 spring:
   application:
     name: e2e-tests
+  config:
+    import: optional:file:.env[.properties]
 
   datasource:
     url: jdbc:postgresql://${POSTGRES_URL}/it_mentor_community_platform
@@ -16,3 +18,14 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+docker:
+  image:
+    tags:
+      gateway: ${GATEWAY_DOCKER_IMAGE_TAG:}
+      auth-service: ${AUTH_SERVICE_DOCKER_IMAGE_TAG:}
+      data-importer: ${DATA_IMPORTER_DOCKER_IMAGE_TAG:}
+      profile-service: ${PROFILE_SERVICE_DOCKER_IMAGE_TAG:}
+      project-service: ${PROJECT_SERVICE_DOCKER_IMAGE_TAG:}
+      mentor-service: ${MENTOR_SERVICE_DOCKER_IMAGE_TAG:}
+      job-market-analytics-service: ${JOB_MARKET_ANALYTICS_SERVICE_DOCKER_IMAGE_TAG:}
