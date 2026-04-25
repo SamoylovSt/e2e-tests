@@ -111,6 +111,7 @@ class TestcontainersConfig {
     GenericContainer<?> authService(Network network, PostgreSQLContainer<?> postgres) {
         return springService("auth-service/auth-service", resolveTag(tags.getAuthService()), network)
                 .withEnv("TELEGRAM_BOT_TOKEN", telegramBotToken)
+                .withNetworkAliases("auth-service")
                 .dependsOn(postgres);
     }
 
@@ -118,18 +119,21 @@ class TestcontainersConfig {
     GenericContainer<?> dataImporter(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("data-importer/data-importer", resolveTag(tags.getDataImporter()), network)
                 .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
+                .withEnv("DATAIMPORTER_PROJECT_SPREEDSHEET_ID", "1tC0cB3KqlKej6bBsbWT0xxImy8p_vxAk8xApTgJbhps")
                 .dependsOn(postgres, kafka);
     }
 
     @Bean
     GenericContainer<?> profileService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("profile-service/profile-service", resolveTag(tags.getProfileService()), network)
+                .withNetworkAliases("profile-service")
                 .dependsOn(postgres, kafka);
     }
 
     @Bean
     GenericContainer<?> projectService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("project-service/project-service", resolveTag(tags.getProjectService()), network)
+                .withNetworkAliases("project-service")
                 .dependsOn(postgres, kafka);
     }
 
