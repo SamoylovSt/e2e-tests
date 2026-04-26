@@ -4,9 +4,12 @@ import jakarta.annotation.PostConstruct;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -90,6 +93,17 @@ class TestcontainersConfig {
         return kafka;
     }
 
+    @Bean
+    KafkaConsumer<String, String> kafkaConsumer(KafkaContainer kafka, KafkaProperties kafkaProperties) {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", kafka.getBootstrapServers());
+        props.put("group.id", "e2e-test-consumer");
+        props.put("key.deserializer", StringDeserializer.class.getName());
+        props.put("value.deserializer", StringDeserializer.class.getName());
+        props.put("auto.offset.reset", "earliest");
+        return new KafkaConsumer<>(props);
+    }
+
     private void createTopics(KafkaContainer kafka) throws Exception {
         Properties props = new Properties();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
@@ -112,6 +126,7 @@ class TestcontainersConfig {
         return springService("auth-service/auth-service", resolveTag(tags.getAuthService()), network)
                 .withEnv("TELEGRAM_BOT_TOKEN", telegramBotToken)
                 .withNetworkAliases("auth-service")
+                .withEnv("VALIDATE_TELEGRAM_INITDATA_TIMESTAMP", "false")
                 .dependsOn(postgres);
     }
 
@@ -120,6 +135,7 @@ class TestcontainersConfig {
         return springService("data-importer/data-importer", resolveTag(tags.getDataImporter()), network)
                 .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
                 .withEnv("DATAIMPORTER_PROJECT_SPREEDSHEET_ID", "1tC0cB3KqlKej6bBsbWT0xxImy8p_vxAk8xApTgJbhps")
+                .withNetworkAliases("data-importer")
                 .dependsOn(postgres, kafka);
     }
 
@@ -140,6 +156,7 @@ class TestcontainersConfig {
     @Bean
     GenericContainer<?> mentorService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("mentor-service/mentor-service", resolveTag(tags.getMentorService()), network)
+                .withNetworkAliases("mentor-service")
                 .dependsOn(postgres, kafka);
     }
 
@@ -149,6 +166,7 @@ class TestcontainersConfig {
                 resolveTag(tags.getJobMarketAnalyticsService()), network)
                 .withEnv("HH_APP_ACCESS_TOKEN", hhAppAccessToken)
                 .withEnv("HH_APP_EMAIL", hhAppEmail)
+                .withNetworkAliases("job-market-analytics-service")
                 .dependsOn(postgres, kafka);
     }
 
