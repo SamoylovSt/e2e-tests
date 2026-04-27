@@ -17,7 +17,7 @@ public abstract class E2eTestBase {
 
     @Autowired
     KafkaConsumer<String, String> kafkaConsumer;
-    @Value("${JWT_SECRET}")
+    @Value("${jwt.secret}")
     String secret;
     @Autowired
     JdbcTemplate jdbcTemplate;
