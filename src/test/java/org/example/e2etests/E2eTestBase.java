@@ -20,6 +20,14 @@ import java.util.Base64;
 public abstract class E2eTestBase {
 
     @Autowired
+    KafkaConsumer<String, String> kafkaConsumer;
+    @Value("${jwt.secret}")
+    String secret;
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+    @Autowired
+    TestRestTemplate restTemplate;
+    @Autowired
     PostgreSQLContainer<?> postgres;
     @Autowired
     KafkaContainer kafka;

@@ -97,6 +97,17 @@ class TestcontainersConfig {
         return kafka;
     }
 
+    @Bean
+    KafkaConsumer<String, String> kafkaConsumer(KafkaContainer kafka, KafkaProperties kafkaProperties) {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", kafka.getBootstrapServers());
+        props.put("group.id", "e2e-test-consumer");
+        props.put("key.deserializer", StringDeserializer.class.getName());
+        props.put("value.deserializer", StringDeserializer.class.getName());
+        props.put("auto.offset.reset", "earliest");
+        return new KafkaConsumer<>(props);
+    }
+
     private void createTopics(KafkaContainer kafka) throws Exception {
         Properties props = new Properties();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
@@ -173,6 +184,7 @@ class TestcontainersConfig {
                 .withNetworkAliases("job-market-analytics-service")
                 .withEnv("HH_APP_ACCESS_TOKEN", hhAppAccessToken)
                 .withEnv("HH_APP_EMAIL", hhAppEmail)
+                .withNetworkAliases("job-market-analytics-service")
                 .dependsOn(postgres, kafka);
     }
 
