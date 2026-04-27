@@ -41,6 +41,9 @@ class TestcontainersConfig {
             "projects.project.created"
     );
 
+    @Value("${jwt.secret}")
+    String secret;
+
     @Value("${TESTCONTAINER_DOCKER_IMAGES_TAG}")
     private String defaultDockerImageTag;
 
@@ -118,7 +121,9 @@ class TestcontainersConfig {
 
     @Bean
     GenericContainer<?> gateway(Network network) {
-        return springService("gateway/gateway", resolveTag(tags.getGateway()), network);
+        return springService("gateway/gateway", resolveTag(tags.getGateway()), network)
+                .withEnv("JWT_SECRET", secret);
+
     }
 
     @Bean
@@ -127,6 +132,7 @@ class TestcontainersConfig {
                 .withEnv("TELEGRAM_BOT_TOKEN", telegramBotToken)
                 .withNetworkAliases("auth-service")
                 .withEnv("VALIDATE_TELEGRAM_INITDATA_TIMESTAMP", "false")
+                .withEnv("JWT_SECRET", secret)
                 .dependsOn(postgres);
     }
 
