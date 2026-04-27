@@ -29,7 +29,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Run E2E tests
         env:
@@ -39,3 +39,10 @@ jobs:
           HH_APP_ACCESS_TOKEN: ${{ secrets.HH_APP_ACCESS_TOKEN }}
           HH_APP_EMAIL: ${{ secrets.HH_APP_EMAIL }}
         run: ./gradlew test
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: build/reports/tests/test/
