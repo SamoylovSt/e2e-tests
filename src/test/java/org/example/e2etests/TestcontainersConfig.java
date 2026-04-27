@@ -4,12 +4,16 @@ import jakarta.annotation.PostConstruct;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -37,6 +41,9 @@ class TestcontainersConfig {
             "auth.user.authenticated",
             "projects.project.created"
     );
+
+    @Value("${jwt.secret}")
+    String jwtSecret;
 
     @Value("${TESTCONTAINER_DOCKER_IMAGES_TAG}")
     private String defaultDockerImageTag;
@@ -103,8 +110,20 @@ class TestcontainersConfig {
     }
 
     @Bean
+    KafkaConsumer<String, String> kafkaConsumer(KafkaContainer kafka) {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", kafka.getBootstrapServers());
+        props.put("group.id", "e2e-test-consumer");
+        props.put("key.deserializer", StringDeserializer.class.getName());
+        props.put("value.deserializer", StringDeserializer.class.getName());
+        props.put("auto.offset.reset", "earliest");
+        return new KafkaConsumer<>(props);
+    }
+
+    @Bean
     GenericContainer<?> gateway(Network network) {
-        return springService("gateway/gateway", resolveTag(tags.getGateway()), network);
+        return springService("gateway/gateway", resolveTag(tags.getGateway()), network)
+                .withEnv("JWT_SECRET", jwtSecret);
     }
 
     @Bean
@@ -113,6 +132,7 @@ class TestcontainersConfig {
                 .withNetworkAliases("auth-service")
                 .withEnv("TELEGRAM_BOT_TOKEN", telegramBotToken)
                 .withEnv("VALIDATE_TELEGRAM_INITDATA_TIMESTAMP", "false")
+                .withEnv("JWT_SECRET", jwtSecret)
                 .dependsOn(postgres);
     }
 
@@ -121,6 +141,7 @@ class TestcontainersConfig {
         return springService("data-importer/data-importer", resolveTag(tags.getDataImporter()), network)
                 .withNetworkAliases("data-importer")
                 .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
+                .withEnv("JWT_SECRET", jwtSecret)
                 .dependsOn(postgres, kafka);
     }
 
@@ -159,6 +180,12 @@ class TestcontainersConfig {
         return Optional.ofNullable(serviceTag)
                 .filter(t -> !t.isBlank())
                 .orElse(defaultDockerImageTag);
+    }
+
+    @Bean
+    public TestRestTemplate testRestTemplate(RestTemplateBuilder builder, GenericContainer<?> gateway) {
+        String baseUrl = "http://localhost:" + gateway.getMappedPort(8080);
+        return new TestRestTemplate(builder.rootUri(baseUrl));
     }
 
     private GenericContainer<?> springService(String imagePath, String tag, Network network) {

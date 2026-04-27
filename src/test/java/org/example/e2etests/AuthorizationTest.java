@@ -1,29 +1,21 @@
 package org.example.e2etests;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.apache.kafka.clients.consumer.Consumer;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.*;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 import java.time.Duration;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
-import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@Import(TestcontainersConfig.class)
 class AuthorizationTest extends E2eTestBase {
 
     private static final Duration AWAIT_TIMEOUT = Duration.ofSeconds(5);
@@ -34,20 +26,14 @@ class AuthorizationTest extends E2eTestBase {
     private static final String KAFKA_TOPIC = "auth.user.created";
     private static final String EXPECTED_ROLE = "STUDENT";
 
-    @Value("${TELEGRAM_INIT_DATA}")
-    private String telegramInitData;
-
-    @Value("${TELEGRAM_UPDATED_INIT_DATA}")
-    private String updatedTelegramInitData;
 
     @Test
     void shouldRegisterUserWithTelegramUsername() {
         String accessToken = authenticateViaTelegram(telegramInitData);
-        JwtClaims claims = parseJwtClaims(accessToken);
+        Claims claims = parseJwt(accessToken);
         Long telegramUserId = extractTelegramUserIdFrom(claims);
 
-        assertThat(claims.roles()).containsExactly(EXPECTED_ROLE);
-
+        assertUserRole(claims);
         Awaitility.await()
                 .atMost(AWAIT_TIMEOUT)
                 .pollInterval(AWAIT_POLL_INTERVAL)
@@ -68,13 +54,13 @@ class AuthorizationTest extends E2eTestBase {
     void shouldAuthorizeExistingUser() {
 
         String firstToken = authenticateViaTelegram(telegramInitData);
-        JwtClaims firstClaims = parseJwtClaims(firstToken);
+        Claims firstClaims = parseJwt(firstToken);
         Long telegramUserId = extractTelegramUserIdFrom(firstClaims);
 
         String secondToken = authenticateViaTelegram(telegramInitData);
-        JwtClaims secondClaims = parseJwtClaims(secondToken);
+        Claims secondClaims = parseJwt(secondToken);
 
-        assertThat(secondClaims.roles()).containsExactly(EXPECTED_ROLE);
+        assertUserRole(secondClaims);
         assertThat(extractTelegramUserIdFrom(secondClaims)).isEqualTo(telegramUserId);
 
         Awaitility.await().atMost(AWAIT_TIMEOUT).pollInterval(AWAIT_POLL_INTERVAL)
@@ -93,13 +79,13 @@ class AuthorizationTest extends E2eTestBase {
     @Test
     void shouldAuthorizeUserWithUpdatedData() {
         String firstToken = authenticateViaTelegram(telegramInitData);
-        JwtClaims firstClaims = parseJwtClaims(firstToken);
+        Claims firstClaims = parseJwt(firstToken);
         Long telegramUserId = extractTelegramUserIdFrom(firstClaims);
 
         String updatedToken = authenticateViaTelegram(updatedTelegramInitData);
-        JwtClaims updatedClaims = parseJwtClaims(updatedToken);
+        Claims updatedClaims = parseJwt(updatedToken);
 
-        assertThat(updatedClaims.roles()).containsExactly(EXPECTED_ROLE);
+        assertUserRole(updatedClaims);
         assertThat(extractTelegramUserIdFrom(updatedClaims)).isEqualTo(telegramUserId);
 
         Awaitility.await()
@@ -122,8 +108,8 @@ class AuthorizationTest extends E2eTestBase {
         headers.setContentType(MediaType.TEXT_PLAIN);
         HttpEntity<String> request = new HttpEntity<>(telegramInitData, headers);
 
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                buildGatewayUrl(AUTH_ENDPOINT),
+        ResponseEntity<String> response = testRestTemplate.postForEntity(
+                AUTH_ENDPOINT,
                 request,
                 String.class
         );
@@ -132,16 +118,17 @@ class AuthorizationTest extends E2eTestBase {
         return response.getHeaders().getFirst("X-Access-Token");
     }
 
-    private JwtClaims parseJwtClaims(String jwtToken) {
-        String[] parts = jwtToken.split("\\.");
-        String payloadJson = new String(Base64.getUrlDecoder().decode(parts[1]));
-        JsonNode claimsNode = parseJson(payloadJson);
-        return new JwtClaims(claimsNode);
+    private Claims parseJwt(String token){
+         return Jwts.parser()
+                 .verifyWith(secretKey())
+                 .build()
+                 .parseSignedClaims(token)
+                 .getPayload();
     }
 
-    private Long extractTelegramUserIdFrom(JwtClaims claims) {
-        assertThat(claims.subject()).isNotBlank();
-        return Long.parseLong(claims.subject());
+    private Long extractTelegramUserIdFrom(Claims claims) {
+        assertThat(claims.getSubject()).isNotBlank();
+        return Long.parseLong(claims.getSubject());
     }
 
     private ResponseEntity<JsonNode> fetchUserProfile(String token, Long telegramUserId) {
@@ -151,12 +138,17 @@ class AuthorizationTest extends E2eTestBase {
         headers.set("X-Telegram-User-Id", String.valueOf(telegramUserId));
         HttpEntity<Void> request = new HttpEntity<>(headers);
 
-        return restTemplate.exchange(
-                buildGatewayUrl(PROFILE_ENDPOINT),
+        return testRestTemplate.exchange(
+                PROFILE_ENDPOINT,
                 HttpMethod.GET,
                 request,
                 JsonNode.class
         );
+    }
+
+    private void assertUserRole(Claims claims) {
+        List<String> roles = claims.get("roles", List.class);
+        assertThat(roles).contains(EXPECTED_ROLE);
     }
 
     private void assertUserPersistedInDatabase(Long telegramUserId) {
@@ -176,42 +168,9 @@ class AuthorizationTest extends E2eTestBase {
     }
 
     private void assertKafkaEventPublished() {
-        Properties props = new Properties();
-        props.put("bootstrap.servers", kafka.getBootstrapServers());
-        props.put("group.id", "test-" + System.currentTimeMillis());
-        props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-        props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-        props.put("auto.offset.reset", "earliest");
-
-        try (Consumer<String, String> consumer = new KafkaConsumer<>(props)) {
-            consumer.subscribe(Collections.singletonList(KAFKA_TOPIC));
-            ConsumerRecords<String, String> records = KafkaTestUtils.getRecords(consumer, KAFKA_POLL_TIMEOUT);
-            assertThat(records.count()).isGreaterThan(0);
-        }
+        kafkaConsumer.subscribe(Collections.singletonList(KAFKA_TOPIC));
+        ConsumerRecords<String, String> records = KafkaTestUtils.getRecords(kafkaConsumer, KAFKA_POLL_TIMEOUT);
+        assertThat(records.count()).isGreaterThan(0);
     }
 
-    private JsonNode parseJson(String json) {
-        try {
-            return objectMapper.readTree(json);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to parse JSON", e);
-        }
-    }
-
-    private String buildGatewayUrl(String path) {
-        return "http://localhost:" + gateway.getMappedPort(8080) + path;
-    }
-
-    private record JwtClaims(JsonNode node) {
-        String subject() {
-            return node.get("sub").asText();
-        }
-
-        List<String> roles() {
-            var rolesNode = node.get("roles");
-            return StreamSupport.stream(rolesNode.spliterator(), false)
-                    .map(JsonNode::asText)
-                    .toList();
-        }
-    }
 }
