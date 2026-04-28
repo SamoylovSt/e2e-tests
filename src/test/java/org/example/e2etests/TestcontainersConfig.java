@@ -1,6 +1,8 @@
 package org.example.e2etests;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+@Slf4j
 
 @TestConfiguration(proxyBeanMethods = false)
 @SuppressWarnings("resource")
@@ -62,14 +65,37 @@ class TestcontainersConfig {
     @Value("${GOOGLE_APPLICATION_CREDENTIALS_JSON}")
     private String googleCredentialsJson;
 
-    @PostConstruct
-    void init() {
-        googleCredentialsJson = stripQuotes(googleCredentialsJson);
-    }
-
     @Bean
     Network network() {
         return Network.newNetwork();
+    }
+
+    private GoogleSheetsTestHelper googleSheetsHelper;
+
+    @Value("${GOOGLE_SOURCE_SPREADSHEET_ID}")
+    private String sourceSpreadsheetId;
+
+    @Value("${GOOGLE_TEST_SPREADSHEET_ID}")
+    private String testSpreadsheetId;;
+
+    @PostConstruct
+    void init() throws Exception {
+        googleCredentialsJson = stripQuotes(googleCredentialsJson);
+        googleSheetsHelper = new GoogleSheetsTestHelper(googleCredentialsJson);
+
+        googleSheetsHelper.copyToExistingSpreadsheet(sourceSpreadsheetId, testSpreadsheetId);
+
+        log.info("Data copied to test spreadsheet: {}", testSpreadsheetId);
+    }
+
+    @Bean
+    String testSpreadsheetId() {
+        return testSpreadsheetId;
+    }
+
+    @Bean
+    GoogleSheetsTestHelper googleSheetsTestHelper() {
+        return googleSheetsHelper;
     }
 
     @Bean
@@ -140,7 +166,7 @@ class TestcontainersConfig {
     GenericContainer<?> dataImporter(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("data-importer/data-importer", resolveTag(tags.getDataImporter()), network)
                 .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
-                .withEnv("DATAIMPORTER_PROJECT_SPREEDSHEET_ID", "1tC0cB3KqlKej6bBsbWT0xxImy8p_vxAk8xApTgJbhps")
+                .withEnv("DATAIMPORTER_PROJECT_SPREEDSHEET_ID", testSpreadsheetId)
                 .withNetworkAliases("data-importer")
                 .dependsOn(postgres, kafka);
     }
@@ -208,4 +234,5 @@ class TestcontainersConfig {
         }
         return value;
     }
+
 }
