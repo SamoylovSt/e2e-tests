@@ -1,5 +1,6 @@
-package org.example.e2etests;
+package org.example.e2etests.tests;
 
+import org.example.e2etests.tests.base.E2eTestBase;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

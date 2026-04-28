@@ -1,18 +1,19 @@
-package org.example.e2etests;
+package org.example.e2etests.config;
 
 import jakarta.annotation.PostConstruct;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -31,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 @TestConfiguration(proxyBeanMethods = false)
 @SuppressWarnings("resource")
 @EnableConfigurationProperties(DockerImageTagsProperties.class)
-class TestcontainersConfig {
+public class TestcontainersConfig {
 
     private static final String GHCR = "ghcr.io/it-mentor-community-platform";
 
@@ -42,7 +43,7 @@ class TestcontainersConfig {
     );
 
     @Value("${jwt.secret}")
-    String secret;
+    String jwtSecret;
 
     @Value("${TESTCONTAINER_DOCKER_IMAGES_TAG}")
     private String defaultDockerImageTag;
@@ -96,17 +97,6 @@ class TestcontainersConfig {
         return kafka;
     }
 
-    @Bean
-    KafkaConsumer<String, String> kafkaConsumer(KafkaContainer kafka, KafkaProperties kafkaProperties) {
-        Properties props = new Properties();
-        props.put("bootstrap.servers", kafka.getBootstrapServers());
-        props.put("group.id", "e2e-test-consumer");
-        props.put("key.deserializer", StringDeserializer.class.getName());
-        props.put("value.deserializer", StringDeserializer.class.getName());
-        props.put("auto.offset.reset", "earliest");
-        return new KafkaConsumer<>(props);
-    }
-
     private void createTopics(KafkaContainer kafka) throws Exception {
         Properties props = new Properties();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
@@ -120,28 +110,38 @@ class TestcontainersConfig {
     }
 
     @Bean
+    KafkaConsumer<String, String> kafkaConsumer(KafkaContainer kafka) {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", kafka.getBootstrapServers());
+        props.put("group.id", "e2e-test-consumer");
+        props.put("key.deserializer", StringDeserializer.class.getName());
+        props.put("value.deserializer", StringDeserializer.class.getName());
+        props.put("auto.offset.reset", "earliest");
+        return new KafkaConsumer<>(props);
+    }
+
+    @Bean
     GenericContainer<?> gateway(Network network) {
         return springService("gateway/gateway", resolveTag(tags.getGateway()), network)
-                .withEnv("JWT_SECRET", secret);
-
+                .withEnv("JWT_SECRET", jwtSecret);
     }
 
     @Bean
     GenericContainer<?> authService(Network network, PostgreSQLContainer<?> postgres) {
         return springService("auth-service/auth-service", resolveTag(tags.getAuthService()), network)
-                .withEnv("TELEGRAM_BOT_TOKEN", telegramBotToken)
                 .withNetworkAliases("auth-service")
+                .withEnv("TELEGRAM_BOT_TOKEN", telegramBotToken)
                 .withEnv("VALIDATE_TELEGRAM_INITDATA_TIMESTAMP", "false")
-                .withEnv("JWT_SECRET", secret)
+                .withEnv("JWT_SECRET", jwtSecret)
                 .dependsOn(postgres);
     }
 
     @Bean
     GenericContainer<?> dataImporter(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("data-importer/data-importer", resolveTag(tags.getDataImporter()), network)
-                .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
-                .withEnv("DATAIMPORTER_PROJECT_SPREEDSHEET_ID", "1tC0cB3KqlKej6bBsbWT0xxImy8p_vxAk8xApTgJbhps")
                 .withNetworkAliases("data-importer")
+                .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
+                .withEnv("JWT_SECRET", jwtSecret)
                 .dependsOn(postgres, kafka);
     }
 
@@ -170,6 +170,7 @@ class TestcontainersConfig {
     GenericContainer<?> jobMarketAnalytics(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("job-market-analytics-service/job-market-analytics-service",
                 resolveTag(tags.getJobMarketAnalyticsService()), network)
+                .withNetworkAliases("job-market-analytics-service")
                 .withEnv("HH_APP_ACCESS_TOKEN", hhAppAccessToken)
                 .withEnv("HH_APP_EMAIL", hhAppEmail)
                 .withNetworkAliases("job-market-analytics-service")
@@ -180,6 +181,12 @@ class TestcontainersConfig {
         return Optional.ofNullable(serviceTag)
                 .filter(t -> !t.isBlank())
                 .orElse(defaultDockerImageTag);
+    }
+
+    @Bean
+    public TestRestTemplate testRestTemplate(RestTemplateBuilder builder, GenericContainer<?> gateway) {
+        String baseUrl = "http://localhost:" + gateway.getMappedPort(8080);
+        return new TestRestTemplate(builder.rootUri(baseUrl));
     }
 
     private GenericContainer<?> springService(String imagePath, String tag, Network network) {
