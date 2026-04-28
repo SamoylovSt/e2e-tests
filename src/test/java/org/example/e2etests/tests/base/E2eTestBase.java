@@ -1,7 +1,8 @@
-package org.example.e2etests;
+package org.example.e2etests.tests.base;
 
 import io.jsonwebtoken.security.Keys;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.example.e2etests.config.TestcontainersConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,48 +21,44 @@ import java.util.Base64;
 public abstract class E2eTestBase {
 
     @Autowired
-    KafkaConsumer<String, String> kafkaConsumer;
+    protected KafkaConsumer<String, String> kafkaConsumer;
     @Value("${jwt.secret}")
-    String secret;
+    protected String secret;
     @Autowired
-    JdbcTemplate jdbcTemplate;
+    protected JdbcTemplate jdbcTemplate;
     @Autowired
-    TestRestTemplate restTemplate;
+    protected TestRestTemplate restTemplate;
     @Autowired
-    PostgreSQLContainer<?> postgres;
+    protected PostgreSQLContainer<?> postgres;
     @Autowired
-    KafkaContainer kafka;
+    protected KafkaContainer kafka;
     @Autowired
-    KafkaConsumer<String, String> kafkaConsumer;
+    protected GenericContainer<?> gateway;
     @Autowired
-    GenericContainer<?> gateway;
+    protected GenericContainer<?> authService;
     @Autowired
-    GenericContainer<?> authService;
+    protected GenericContainer<?> dataImporter;
     @Autowired
-    GenericContainer<?> dataImporter;
+    protected GenericContainer<?> profileService;
     @Autowired
-    GenericContainer<?> profileService;
+    protected GenericContainer<?> projectService;
     @Autowired
-    GenericContainer<?> projectService;
+    protected GenericContainer<?> mentorService;
     @Autowired
-    GenericContainer<?> mentorService;
+    protected GenericContainer<?> jobMarketAnalytics;
     @Autowired
-    GenericContainer<?> jobMarketAnalytics;
-    @Autowired
-    JdbcTemplate jdbcTemplate;
-    @Autowired
-    TestRestTemplate testRestTemplate;
+    protected TestRestTemplate testRestTemplate;
 
     @Value("${jwt.secret}")
-    String jwtSecret;
+    protected String jwtSecret;
 
     @Value("${telegram.init-data}")
-    String telegramInitData;
+    protected String telegramInitData;
 
     @Value("${telegram.updated-init-data}")
-    String updatedTelegramInitData;
+    protected String updatedTelegramInitData;
 
-    SecretKey secretKey() {
+    protected SecretKey secretKey() {
         return Keys.hmacShaKeyFor(Base64.getDecoder().decode(jwtSecret));
     }
 }

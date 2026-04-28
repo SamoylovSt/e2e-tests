@@ -1,9 +1,10 @@
-package org.example.e2etests;
+package org.example.e2etests.tests.data;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.example.e2etests.tests.base.E2eTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -93,10 +94,8 @@ public class DataImporterE2eTest extends E2eTestBase {
     }
 
     private void startImport(String path) {
-        int port = gateway.getMappedPort(8080);
-        String host = gateway.getHost();
         restTemplate.postForEntity(
-                "http://" + host + ":" + port + path,
+                path,
                 new HttpEntity<>(createHeaders()),
                 String.class
         );

@@ -1,4 +1,4 @@
-package org.example.e2etests;
+package org.example.e2etests.config;
 
 import lombok.Getter;
 import lombok.Setter;

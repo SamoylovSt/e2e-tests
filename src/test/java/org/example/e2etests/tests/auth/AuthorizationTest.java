@@ -1,9 +1,11 @@
-package org.example.e2etests;
+package org.example.e2etests.tests.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.example.e2etests.tests.base.E2eTestBase;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.*;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
@@ -26,6 +28,10 @@ class AuthorizationTest extends E2eTestBase {
     private static final String KAFKA_TOPIC = "auth.user.created";
     private static final String EXPECTED_ROLE = "STUDENT";
 
+    @AfterEach
+    void cleanTestData() {
+        jdbcTemplate.execute("TRUNCATE TABLE profile_service.profiles, auth_service.users RESTART IDENTITY CASCADE");
+    }
 
     @Test
     void shouldRegisterUserWithTelegramUsername() {

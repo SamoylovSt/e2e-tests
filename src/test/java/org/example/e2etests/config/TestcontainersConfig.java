@@ -1,4 +1,4 @@
-package org.example.e2etests;
+package org.example.e2etests.config;
 
 import jakarta.annotation.PostConstruct;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 @TestConfiguration(proxyBeanMethods = false)
 @SuppressWarnings("resource")
 @EnableConfigurationProperties(DockerImageTagsProperties.class)
-class TestcontainersConfig {
+public class TestcontainersConfig {
 
     private static final String GHCR = "ghcr.io/it-mentor-community-platform";
 
@@ -95,17 +95,6 @@ class TestcontainersConfig {
         kafka.start();
         createTopics(kafka);
         return kafka;
-    }
-
-    @Bean
-    KafkaConsumer<String, String> kafkaConsumer(KafkaContainer kafka, KafkaProperties kafkaProperties) {
-        Properties props = new Properties();
-        props.put("bootstrap.servers", kafka.getBootstrapServers());
-        props.put("group.id", "e2e-test-consumer");
-        props.put("key.deserializer", StringDeserializer.class.getName());
-        props.put("value.deserializer", StringDeserializer.class.getName());
-        props.put("auto.offset.reset", "earliest");
-        return new KafkaConsumer<>(props);
     }
 
     private void createTopics(KafkaContainer kafka) throws Exception {
