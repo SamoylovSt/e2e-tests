@@ -83,7 +83,7 @@ class TestcontainersConfig {
         googleCredentialsJson = stripQuotes(googleCredentialsJson);
         googleSheetsHelper = new GoogleSheetsTestHelper(googleCredentialsJson);
 
-        googleSheetsHelper.copyToExistingSpreadsheet(sourceSpreadsheetId, testSpreadsheetId);
+         // googleSheetsHelper.copyToExistingSpreadsheet(sourceSpreadsheetId, testSpreadsheetId);
 
         log.info("Data copied to test spreadsheet: {}", testSpreadsheetId);
     }
@@ -149,7 +149,6 @@ class TestcontainersConfig {
     GenericContainer<?> gateway(Network network) {
         return springService("gateway/gateway", resolveTag(tags.getGateway()), network)
                 .withEnv("JWT_SECRET", secret);
-
     }
 
     @Bean
@@ -167,7 +166,9 @@ class TestcontainersConfig {
         return springService("data-importer/data-importer", resolveTag(tags.getDataImporter()), network)
                 .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
                 .withEnv("DATAIMPORTER_PROJECT_SPREEDSHEET_ID", testSpreadsheetId)
-                .withNetworkAliases("data-importer")
+                .withEnv("DATAIMPORTER_PROJECT-SPREADSHEET-ID", testSpreadsheetId)
+                .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("DATA-IMPORTER")))
+                .withEnv("LOGGING_LEVEL_COM_ITMENTORCOMMUNITYPLATFORM_DATAIMPORTER", "DEBUG")
                 .dependsOn(postgres, kafka);
     }
 

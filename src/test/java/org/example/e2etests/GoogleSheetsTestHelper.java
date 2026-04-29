@@ -13,10 +13,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class GoogleSheetsTestHelper {
@@ -39,13 +37,26 @@ public class GoogleSheetsTestHelper {
         // 1. Получаем ВСЕ листы из ИСХОДНОЙ таблицы
         Spreadsheet source = sheetsService.spreadsheets().get(sourceSpreadsheetId).execute();
         List<Sheet> sourceSheets = source.getSheets();
+        List<String> sourceNames = sourceSheets.stream()
+                .map(s -> s.getProperties().getTitle())
+                .toList();
 
-        // 2. Очищаем данные в целевой таблице (на всех листах)
-        sheetsService.spreadsheets().values()
-                .clear(targetSpreadsheetId, "A:ZZ", null)
-                .execute();
+        // 2. Удаляем ВСЕ старые листы из целевой таблицы (кроме одного)
+        Spreadsheet target = sheetsService.spreadsheets().get(targetSpreadsheetId).execute();
+        List<Sheet> targetSheets = target.getSheets();
 
-        // 3. Копируем КАЖДЫЙ лист из источника в целевую таблицу
+        while (targetSheets.size() > 1) {
+            DeleteSheetRequest deleteRequest = new DeleteSheetRequest();
+            deleteRequest.setSheetId(targetSheets.get(0).getProperties().getSheetId());
+
+            BatchUpdateSpreadsheetRequest batchRequest = new BatchUpdateSpreadsheetRequest();
+            batchRequest.setRequests(List.of(new Request().setDeleteSheet(deleteRequest)));
+            sheetsService.spreadsheets().batchUpdate(targetSpreadsheetId, batchRequest).execute();
+
+            targetSheets = sheetsService.spreadsheets().get(targetSpreadsheetId).execute().getSheets();
+        }
+
+        // 3. Копируем КАЖДЫЙ лист из источника
         for (Sheet sheet : sourceSheets) {
             Integer sourceSheetId = sheet.getProperties().getSheetId();
 
@@ -59,35 +70,51 @@ public class GoogleSheetsTestHelper {
             log.info("Copied sheet '{}'", sheet.getProperties().getTitle());
         }
 
-        // 4. Удаляем старые пустые листы (те, которые были изначально)
-        Spreadsheet updatedTarget = sheetsService.spreadsheets().get(targetSpreadsheetId).execute();
-        int targetSheetCount = updatedTarget.getSheets().size();
-        int sourceSheetCount = sourceSheets.size();
+        // 4. Удаляем последний старый лист
+        target = sheetsService.spreadsheets().get(targetSpreadsheetId).execute();
+        for (Sheet sheet : target.getSheets()) {
+            if (!sourceNames.contains(sheet.getProperties().getTitle()) && target.getSheets().size() > 1) {
+                DeleteSheetRequest deleteRequest = new DeleteSheetRequest();
+                deleteRequest.setSheetId(sheet.getProperties().getSheetId());
 
-        // Удаляем лишние листы (обычно это старый "Sheet1")
-        while (targetSheetCount > sourceSheetCount) {
-            // Находим лист для удаления (который не из источника)
-            for (Sheet sheet : updatedTarget.getSheets()) {
-                boolean isInSource = sourceSheets.stream()
-                        .anyMatch(s -> s.getProperties().getTitle().equals(sheet.getProperties().getTitle()));
-
-                if (!isInSource && updatedTarget.getSheets().size() > 1) {
-                    DeleteSheetRequest deleteRequest = new DeleteSheetRequest();
-                    deleteRequest.setSheetId(sheet.getProperties().getSheetId());
-
-                    BatchUpdateSpreadsheetRequest batchRequest = new BatchUpdateSpreadsheetRequest();
-                    batchRequest.setRequests(List.of(new Request().setDeleteSheet(deleteRequest)));
-                    sheetsService.spreadsheets().batchUpdate(targetSpreadsheetId, batchRequest).execute();
-                    break;
-                }
+                BatchUpdateSpreadsheetRequest batchRequest = new BatchUpdateSpreadsheetRequest();
+                batchRequest.setRequests(List.of(new Request().setDeleteSheet(deleteRequest)));
+                sheetsService.spreadsheets().batchUpdate(targetSpreadsheetId, batchRequest).execute();
+                break;
             }
-
-            // Обновляем информацию после удаления
-            updatedTarget = sheetsService.spreadsheets().get(targetSpreadsheetId).execute();
-            targetSheetCount = updatedTarget.getSheets().size();
         }
 
-        log.info("All {} sheets copied from {} to {}", sourceSheetCount, sourceSpreadsheetId, targetSpreadsheetId);
+        // 5. **НОВОЕ: Переименовываем листы, убирая "(копия)"**
+        target = sheetsService.spreadsheets().get(targetSpreadsheetId).execute();
+        List<Request> renameRequests = new ArrayList<>();
+        Set<String> existingNames = target.getSheets().stream()
+                .map(s -> s.getProperties().getTitle())
+                .collect(Collectors.toSet());
+
+        for (Sheet sheet : target.getSheets()) {
+            String name = sheet.getProperties().getTitle();
+            if (name.contains("(копия)")) {
+                String newName = name.replaceAll("\\s*\\(копия\\)\\s*\\d*", "").trim();
+
+                // Переименовываем ТОЛЬКО если имя не занято
+                if (!existingNames.contains(newName)) {
+                    renameRequests.add(new Request().setUpdateSheetProperties(
+                            new UpdateSheetPropertiesRequest()
+                                    .setProperties(new SheetProperties()
+                                            .setSheetId(sheet.getProperties().getSheetId())
+                                            .setTitle(newName))
+                                    .setFields("title")));
+                }
+            }
+        }
+
+        if (!renameRequests.isEmpty()) {
+            sheetsService.spreadsheets().batchUpdate(targetSpreadsheetId,
+                    new BatchUpdateSpreadsheetRequest().setRequests(renameRequests)).execute();
+            log.info("Renamed {} sheets", renameRequests.size());
+        }
+
+        log.info("All {} sheets copied successfully", sourceSheets.size());
     }
 
     public List<List<Object>> readSheet(String spreadsheetId, String range) throws IOException {

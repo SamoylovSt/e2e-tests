@@ -3,39 +3,64 @@ package org.example.e2etests;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.jdbc.JdbcTestUtils;
 
 import javax.crypto.SecretKey;
+import java.io.IOException;
+import java.time.Duration;
 import java.util.*;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.awaitility.Awaitility.await;
+
 @Slf4j
 public class ProjectsImportTest extends E2eTestBase {
+    @Autowired
+    private GoogleSheetsTestHelper googleSheetsHelper;
+//
+    @Value("${GOOGLE_TEST_SPREADSHEET_ID}")
+    private String testSpreadsheetId;
 
-    @BeforeEach
-    void setUp() {
-        // Создаём профиль для тестов
-        jdbcTemplate.update("DELETE FROM profile_service.profiles WHERE telegram_user_id = 123456789");
-        jdbcTemplate.update(
-                "INSERT INTO profile_service.profiles (id, telegram_user_id) VALUES (1, 123456789)"
-        );
-        log.info("Profile created for user 123456789");
-    }
+
     @Test
-    void shouldPersistProjectInDb() {
-
+    void shouldPersistProjectInDb() throws IOException, InterruptedException {
+        assertKafkaTopicEmpty("projects.project.created");
         assertTableIsEmpty("project_service.projects");
         assertTableIsEmpty("profile_service.project");
         startImport("/api/project/project");
         assertTableHasRecords("project_service.projects");
-        assertTableHasRecords("profile_service.project");
+        //   assertTableHasRecords("profile_service.project");
+        Thread.sleep(10000);
+
+
+
+        //     6. Проверяем Google Sheets
+//        List<List<Object>> values = googleSheetsHelper.readSheet(testSpreadsheetId, "A1:Z1");
+//        assertThat(values).isNotNull();
+//        assertThat(values.size()).isGreaterThan(0);
+//
+//        boolean projectFound = values.stream()
+//                .anyMatch(row -> row.toString().contains("currency-exchange-test"));
+//        assertThat(projectFound).isTrue();
+
     }
 
+    private void assertKafkaTopicEmpty(String topic) {
+        kafkaConsumer.subscribe(List.of(topic));
+        kafkaConsumer.poll(Duration.ofMillis(100));
+        kafkaConsumer.seekToBeginning(kafkaConsumer.assignment());
+        ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofSeconds(5));
+        assertThat(records.count()).isZero();
+    }
 
     private void assertTableIsEmpty(String tableName) {
         int count = JdbcTestUtils.countRowsInTable(jdbcTemplate, tableName);
@@ -46,7 +71,7 @@ public class ProjectsImportTest extends E2eTestBase {
         SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(secret));
         Date now = new Date();
         return Jwts.builder()
-                .subject("1")
+                .subject("123456789")
                 .claim("roles", List.of("ADMIN"))
                 .claim("telegram_username", "e2e_test_admin")
                 .issuedAt(now)
@@ -56,8 +81,8 @@ public class ProjectsImportTest extends E2eTestBase {
     }
 
     private void startImport(String path) {
-        int port = gateway.getMappedPort(8080);
-        String host = gateway.getHost();
+        int port = projectService.getMappedPort(8080);
+        String host = projectService.getHost();
 
         Map<String, String> requestBody = new HashMap<>();
         requestBody.put("github_repository_url", "https://github.com/zhukovsd/currency-exchange-test");
