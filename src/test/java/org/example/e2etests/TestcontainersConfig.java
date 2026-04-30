@@ -1,7 +1,6 @@
 package org.example.e2etests;
 
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -29,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+
 @Slf4j
 
 @TestConfiguration(proxyBeanMethods = false)
@@ -70,20 +70,20 @@ class TestcontainersConfig {
         return Network.newNetwork();
     }
 
-    private GoogleSheetsTestHelper googleSheetsHelper;
+    private GoogleSheetsClient googleSheetsClient;
 
     @Value("${GOOGLE_SOURCE_SPREADSHEET_ID}")
     private String sourceSpreadsheetId;
 
     @Value("${GOOGLE_TEST_SPREADSHEET_ID}")
-    private String testSpreadsheetId;;
+    private String testSpreadsheetId;
 
     @PostConstruct
     void init() throws Exception {
         googleCredentialsJson = stripQuotes(googleCredentialsJson);
-        googleSheetsHelper = new GoogleSheetsTestHelper(googleCredentialsJson);
+        googleSheetsClient = new GoogleSheetsClient(googleCredentialsJson);
 
-         // googleSheetsHelper.copyToExistingSpreadsheet(sourceSpreadsheetId, testSpreadsheetId);
+        googleSheetsClient.copyToExistingSpreadsheet(sourceSpreadsheetId, testSpreadsheetId);
 
         log.info("Data copied to test spreadsheet: {}", testSpreadsheetId);
     }
@@ -94,8 +94,8 @@ class TestcontainersConfig {
     }
 
     @Bean
-    GoogleSheetsTestHelper googleSheetsTestHelper() {
-        return googleSheetsHelper;
+    GoogleSheetsClient googleSheetsTestHelper() {
+        return googleSheetsClient;
     }
 
     @Bean
@@ -165,10 +165,7 @@ class TestcontainersConfig {
     GenericContainer<?> dataImporter(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("data-importer/data-importer", resolveTag(tags.getDataImporter()), network)
                 .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
-                .withEnv("DATAIMPORTER_PROJECT_SPREEDSHEET_ID", testSpreadsheetId)
                 .withEnv("DATAIMPORTER_PROJECT-SPREADSHEET-ID", testSpreadsheetId)
-                .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("DATA-IMPORTER")))
-                .withEnv("LOGGING_LEVEL_COM_ITMENTORCOMMUNITYPLATFORM_DATAIMPORTER", "DEBUG")
                 .dependsOn(postgres, kafka);
     }
 

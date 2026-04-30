@@ -14,7 +14,10 @@ import org.testcontainers.kafka.KafkaContainer;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfig.class)
 public abstract class E2eTestBase {
-
+    @Autowired
+    GoogleSheetsClient googleSheetsHelper;
+    @Value("${GOOGLE_TEST_SPREADSHEET_ID}")
+    String testSpreadsheetId;
     @Autowired
     KafkaConsumer<String, String> kafkaConsumer;
     @Value("${jwt.secret}")
@@ -29,10 +32,16 @@ public abstract class E2eTestBase {
     KafkaContainer kafka;
     @Autowired
     GenericContainer<?> gateway;
-    @Autowired GenericContainer<?> authService;
-    @Autowired GenericContainer<?> dataImporter;
-    @Autowired GenericContainer<?> profileService;
-    @Autowired GenericContainer<?> projectService;
-    @Autowired GenericContainer<?> mentorService;
-    @Autowired GenericContainer<?> jobMarketAnalytics;
+    @Autowired
+    GenericContainer<?> authService;
+    @Autowired
+    GenericContainer<?> dataImporter;
+    @Autowired
+    GenericContainer<?> profileService;
+    @Autowired
+    GenericContainer<?> projectService;
+    @Autowired
+    GenericContainer<?> mentorService;
+    @Autowired
+    GenericContainer<?> jobMarketAnalytics;
 }
