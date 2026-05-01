@@ -89,11 +89,6 @@ class TestcontainersConfig {
     }
 
     @Bean
-    String testSpreadsheetId() {
-        return testSpreadsheetId;
-    }
-
-    @Bean
     GoogleSheetsClient googleSheetsTestHelper() {
         return googleSheetsClient;
     }

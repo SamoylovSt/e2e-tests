@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public class GoogleSheetsClient {
     private final Sheets sheetsService;
 
-    private static final String DEFAULT_SHEET="temp";
+    private static final String DEFAULT_SHEET="Лист1";
 
     public GoogleSheetsClient(String credentialsJson) throws IOException, GeneralSecurityException {
         GoogleCredentials credentials = GoogleCredentials.fromStream(
