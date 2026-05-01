@@ -1,9 +1,10 @@
-package org.example.e2etests;
+package org.example.e2etests.tests.data;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.example.e2etests.tests.base.E2eTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
@@ -117,7 +118,7 @@ public class ProjectsImportTest extends E2eTestBase {
     }
 
     private String createAdminToken() {
-        SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(secret));
+        SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(jwtSecret));
         Date now = new Date();
         return Jwts.builder()
                 .subject("123456789")
@@ -138,7 +139,7 @@ public class ProjectsImportTest extends E2eTestBase {
         }
         HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, createHeaders());
 
-        restTemplate.postForEntity(
+        testRestTemplate.postForEntity(
                 "http://" + host + ":" + port + path,
                 requestEntity,
                 String.class
@@ -178,6 +179,6 @@ public class ProjectsImportTest extends E2eTestBase {
         int port = profileService.getMappedPort(8080);
         String host = profileService.getHost();
 
-        restTemplate.postForEntity("http://" + host + ":" + port + "/api/profile/internal/profile", entity, String.class);
+        testRestTemplate.postForEntity("http://" + host + ":" + port + "/api/profile/internal/profile", entity, String.class);
     }
 }

@@ -1,4 +1,4 @@
-package org.example.e2etests;
+package org.example.e2etests.config;
 
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
