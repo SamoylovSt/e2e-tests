@@ -26,22 +26,13 @@ public abstract class E2eTestBase {
     JdbcTemplate jdbcTemplate;
     @Autowired
     TestRestTemplate restTemplate;
-    @Autowired
-    PostgreSQLContainer<?> postgres;
-    @Autowired
-    KafkaContainer kafka;
-    @Autowired
-    GenericContainer<?> gateway;
-    @Autowired
-    GenericContainer<?> authService;
-    @Autowired
-    GenericContainer<?> dataImporter;
-    @Autowired
-    GenericContainer<?> profileService;
-    @Autowired
-    GenericContainer<?> projectService;
-    @Autowired
-    GenericContainer<?> mentorService;
-    @Autowired
-    GenericContainer<?> jobMarketAnalytics;
+    @Autowired PostgreSQLContainer<?> postgres;
+    @Autowired KafkaContainer kafka;
+    @Autowired GenericContainer<?> gateway;
+    @Autowired GenericContainer<?> authService;
+    @Autowired GenericContainer<?> dataImporter;
+    @Autowired GenericContainer<?> profileService;
+    @Autowired GenericContainer<?> projectService;
+    @Autowired GenericContainer<?> mentorService;
+    @Autowired GenericContainer<?> jobMarketAnalytics;
 }
