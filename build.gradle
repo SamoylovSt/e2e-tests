@@ -65,3 +65,6 @@ tasks.named('test') {
 	useJUnitPlatform()
 	timeout = Duration.ofMinutes(30)
 }
+test {
+	maxParallelForks = 1
+}

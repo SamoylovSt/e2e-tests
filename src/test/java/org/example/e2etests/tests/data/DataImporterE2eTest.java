@@ -5,9 +5,11 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.example.e2etests.tests.base.E2eTestBase;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.jdbc.JdbcTestUtils;
 
 import javax.crypto.SecretKey;
@@ -20,6 +22,13 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 @Slf4j
 public class DataImporterE2eTest extends E2eTestBase {
+
+    @AfterEach
+    void setUp() {
+        jdbcTemplate.execute("TRUNCATE TABLE auth_service.users RESTART IDENTITY CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE profile_service.profiles RESTART IDENTITY CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE project_service.projects RESTART IDENTITY CASCADE");
+    }
 
     @Test
     void shouldImportUsersAndSendMessagesToKafka() throws InterruptedException {
@@ -38,7 +47,7 @@ public class DataImporterE2eTest extends E2eTestBase {
     }
 
     @Test
-    void shouldImportProfiles() throws InterruptedException {
+    void shouldImportProfilesAndProjects() throws InterruptedException {
         assertTableIsEmpty("profile_service.profiles");
 
         startImport("/api/data-importer/start-profiles-import");
@@ -46,13 +55,9 @@ public class DataImporterE2eTest extends E2eTestBase {
         Thread.sleep(10_000);
 
         assertTableHasRecords("profile_service.profiles");
-    }
 
-    @Test
-    void shouldImportProjectsAndSendMessagesToKafka() throws InterruptedException {
         assertTableIsEmpty("project_service.projects");
         kafkaConsumer.subscribe(List.of("projects.project.created"));
-
         startImport("/api/data-importer/start-projects-import");
 
         Thread.sleep(10_000);
@@ -85,6 +90,7 @@ public class DataImporterE2eTest extends E2eTestBase {
     private HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Access-Token", createAdminToken());
+        headers.setContentType(MediaType.APPLICATION_JSON);
         return headers;
     }
 
@@ -100,5 +106,4 @@ public class DataImporterE2eTest extends E2eTestBase {
                 String.class
         );
     }
-
 }

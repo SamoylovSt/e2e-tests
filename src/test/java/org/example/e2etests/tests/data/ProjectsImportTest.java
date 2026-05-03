@@ -4,7 +4,9 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.common.TopicPartition;
 import org.example.e2etests.tests.base.E2eTestBase;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
@@ -27,16 +29,24 @@ public class ProjectsImportTest extends E2eTestBase {
     private static boolean profileCreated = false;
 
     @BeforeEach
-    void setUp() throws InterruptedException {
+    void setUp() {
+        jdbcTemplate.execute("TRUNCATE TABLE profile_service.project RESTART IDENTITY CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE project_service.projects RESTART IDENTITY CASCADE");
         if (!profileCreated) {
             profileCreate();
             profileCreated = true;
         }
-        jdbcTemplate.execute("DELETE FROM profile_service.project");
-        jdbcTemplate.execute("DELETE FROM project_service.projects");
         assertTableIsEmpty("project_service.projects");
         assertTableIsEmpty("profile_service.project");
+        kafkaConsumer.seekToEnd(kafkaConsumer.assignment());
         assertKafkaTopicEmpty("projects.project.created");
+    }
+
+    @AfterEach
+    void clearTable() {
+        jdbcTemplate.execute("TRUNCATE TABLE profile_service.project RESTART IDENTITY CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE project_service.projects RESTART IDENTITY CASCADE");
+
     }
 
     @Test
@@ -107,7 +117,10 @@ public class ProjectsImportTest extends E2eTestBase {
     private void assertKafkaTopicEmpty(String topic) {
         kafkaConsumer.subscribe(List.of(topic));
         kafkaConsumer.poll(Duration.ofMillis(500));
-        kafkaConsumer.seekToEnd(kafkaConsumer.assignment());
+
+        Set<TopicPartition> partitions = kafkaConsumer.assignment();
+        kafkaConsumer.seekToEnd(partitions);
+
         ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofSeconds(2));
         assertThat(records.count()).isZero();
     }
