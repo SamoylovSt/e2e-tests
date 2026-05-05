@@ -8,8 +8,6 @@ import org.example.e2etests.tests.base.E2eTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.test.jdbc.JdbcTestUtils;
 
 import javax.crypto.SecretKey;
@@ -19,6 +17,7 @@ import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.example.e2etests.Util.createHeaders;
 
 @Slf4j
 public class DataImporterE2eTest extends E2eTestBase {
@@ -78,20 +77,13 @@ public class DataImporterE2eTest extends E2eTestBase {
         SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(jwtSecret));
         Date now = new Date();
         return Jwts.builder()
-                .subject("1")
+                .subject("123456789")
                 .claim("roles", List.of("ADMIN"))
                 .claim("telegram_username", "e2e_test_admin")
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + 3_600_000))
                 .signWith(key)
                 .compact();
-    }
-
-    private HttpHeaders createHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Access-Token", createAdminToken());
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        return headers;
     }
 
     private void assertTableHasRecords(String tableName) {
@@ -102,7 +94,7 @@ public class DataImporterE2eTest extends E2eTestBase {
     private void startImport(String path) {
         testRestTemplate.postForEntity(
                 path,
-                new HttpEntity<>(createHeaders()),
+                new HttpEntity<>(createHeaders(createAdminToken())),
                 String.class
         );
     }

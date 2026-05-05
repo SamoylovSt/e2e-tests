@@ -5,6 +5,7 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
+import org.example.e2etests.dto.CreateProjectRequest;
 import org.example.e2etests.tests.base.E2eTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.example.e2etests.Util.createHeaders;
 
 @Slf4j
 public class ProjectsImportTest extends E2eTestBase {
@@ -51,10 +53,11 @@ public class ProjectsImportTest extends E2eTestBase {
 
     @Test
     void shouldCreateProjectAndSaveToDatabaseAndGoogleSheets() throws IOException, InterruptedException {
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("github_repository_url", "https://github.com/zhukovsd/currency-exchange-test");
-        requestBody.put("programming_language", "Java");
-        requestBody.put("roadmap_project", "CURRENCY-EXCHANGE");
+        CreateProjectRequest requestBody = CreateProjectRequest.builder()
+                .githubRepositoryUrl("https://github.com/zhukovsd/currency-exchange-test")
+                .programmingLanguage("Java")
+                .roadmapProject("CURRENCY-EXCHANGE")
+                .build();
 
         startImport("/api/project/project", requestBody);
         Thread.sleep(5000);
@@ -72,13 +75,14 @@ public class ProjectsImportTest extends E2eTestBase {
 
     @Test
     void shouldCreateProjectAndSaveToDatabaseAndGoogleSheetsFromTgBot() throws IOException, InterruptedException {
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("author_telegram_user_id", 123456789);
-        requestBody.put("github_repository_url", "https://github.com/zhukovsd/hangman-test");
-        requestBody.put("programming_language", "Java");
-        requestBody.put("roadmap_project", "HANGMAN");
-        requestBody.put("author_telegram_username", "zhukovsd");
-        requestBody.put("project_source_type", "TELEGRAM_BOT");
+        CreateProjectRequest requestBody = CreateProjectRequest.builder()
+                .authorTelegramUserId(123456789L)
+                .githubRepositoryUrl("https://github.com/zhukovsd/hangman-test")
+                .programmingLanguage("Java")
+                .roadmapProject("HANGMAN")
+                .authorTelegramUsername("zhukovsd")
+                .projectSourceType("TELEGRAM_BOT")
+                .build();
 
         startImport("/api/project/internal/project", requestBody);
         Thread.sleep(5000);
@@ -95,15 +99,16 @@ public class ProjectsImportTest extends E2eTestBase {
     }
 
     @Test
-    void shouldCreateProjectAndSaveToDatabaseFromDataImporter() throws IOException, InterruptedException {
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("author_telegram_user_id", 123456789);
-        requestBody.put("github_repository_url", "https://github.com/zhukovsd/hangman-test2");
-        requestBody.put("programming_language", "Java");
-        requestBody.put("roadmap_project", "HANGMAN");
-        requestBody.put("author_telegram_username", "zhukovsd");
-        requestBody.put("added_timestamp", "1765628000");
-        requestBody.put("project_source_type", "DATA_IMPORTER");
+    void shouldCreateProjectAndSaveToDatabaseFromDataImporter() throws InterruptedException {
+        CreateProjectRequest requestBody = CreateProjectRequest.builder()
+                .authorTelegramUserId(123456789L)
+                .githubRepositoryUrl("https://github.com/zhukovsd/hangman-test2")
+                .programmingLanguage("Java")
+                .roadmapProject("HANGMAN")
+                .authorTelegramUsername("zhukovsd")
+                .addedTimestamp("1765628000")
+                .projectSourceType("DATA_IMPORTER")
+                .build();
 
         startImport("/api/project/internal/project", requestBody);
         Thread.sleep(5000);
@@ -143,33 +148,20 @@ public class ProjectsImportTest extends E2eTestBase {
                 .compact();
     }
 
-    private void startImport(String path, Map<String, Object> requestBody) {
+    private void startImport(String path, CreateProjectRequest requestBody) {
         int port = gateway.getMappedPort(8080);
         String host = gateway.getHost();
         if (path.contains("internal")) {
             port = projectService.getMappedPort(8080);
             host = projectService.getHost();
         }
-        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, createHeaders());
-
+        HttpEntity<CreateProjectRequest> requestEntity = new HttpEntity<>(requestBody, createHeaders(createAdminToken()));
         testRestTemplate.postForEntity(
                 "http://" + host + ":" + port + path,
                 requestEntity,
                 String.class
         );
 
-    }
-
-
-    private HttpHeaders createHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Access-Token", createAdminToken());
-        headers.set("X-Telegram-User-Id", "123456789");
-        headers.set("X-Telegram-Username", "llllqqqqqqqqq");
-        headers.set("X-User-Roles", "STUDENT");
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        return headers;
     }
 
     private void assertTableHasRecords(String tableName) {

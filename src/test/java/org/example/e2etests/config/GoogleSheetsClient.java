@@ -4,6 +4,7 @@ package org.example.e2etests.config;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.sheets.v4.Sheets;
+import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.*;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
@@ -23,12 +24,12 @@ import java.util.stream.Collectors;
 public class GoogleSheetsClient {
     private final Sheets sheetsService;
 
-    private static final String DEFAULT_SHEET="Лист1";
+    private static final String DEFAULT_SHEET = "Лист1";
 
     public GoogleSheetsClient(String credentialsJson) throws IOException, GeneralSecurityException {
         GoogleCredentials credentials = GoogleCredentials.fromStream(
                         new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8)))
-                .createScoped(Collections.singletonList("https://www.googleapis.com/auth/drive"));
+                .createScoped(Collections.singletonList(SheetsScopes.SPREADSHEETS));
 
         sheetsService = new Sheets.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),

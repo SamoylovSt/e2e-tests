@@ -6,18 +6,14 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.example.e2etests.config.DockerImageTagsProperties;
-import org.example.e2etests.config.GoogleSheetsClient;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.GenericContainer;
@@ -69,10 +65,6 @@ public class TestcontainersConfig {
     @Value("${GOOGLE_APPLICATION_CREDENTIALS_JSON}")
     private String googleCredentialsJson;
 
-    @Bean
-    Network network() {
-        return Network.newNetwork();
-    }
 
     private GoogleSheetsClient googleSheetsClient;
 
@@ -81,6 +73,11 @@ public class TestcontainersConfig {
 
     @Value("${GOOGLE_TEST_SPREADSHEET_ID}")
     private String testSpreadsheetId;
+
+    @Bean
+    Network network() {
+        return Network.newNetwork();
+    }
 
     @PostConstruct
     void init() throws Exception {
