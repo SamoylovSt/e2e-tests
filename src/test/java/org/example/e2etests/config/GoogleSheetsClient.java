@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 public class GoogleSheetsClient {
     private final Sheets sheetsService;
 
-    private static final String DEFAULT_SHEET = "Лист1";
+    private static final String DEFAULT_SHEET = "Default sheet";
 
     public GoogleSheetsClient(String credentialsJson) throws IOException, GeneralSecurityException {
         GoogleCredentials credentials = GoogleCredentials.fromStream(
@@ -40,6 +40,8 @@ public class GoogleSheetsClient {
     }
 
     public void copyToExistingSpreadsheet(String sourceSpreadsheetId, String targetSpreadsheetId) throws IOException {
+        createDefaultSheet(targetSpreadsheetId);
+
         Spreadsheet source = sheetsService.spreadsheets().get(sourceSpreadsheetId).execute();
         List<Sheet> sourceSheets = source.getSheets();
 
@@ -79,9 +81,24 @@ public class GoogleSheetsClient {
     }
 
     public List<List<Object>> readSheet(String spreadsheetId, String range) throws IOException {
-        com.google.api.services.sheets.v4.model.ValueRange result = sheetsService.spreadsheets().values()
+        ValueRange result = sheetsService.spreadsheets().values()
                 .get(spreadsheetId, range)
                 .execute();
         return result.getValues();
+    }
+
+    private void createDefaultSheet(String spreadsheetId) throws IOException {
+        Spreadsheet spreadsheet = sheetsService.spreadsheets().get(spreadsheetId).execute();
+        boolean hasDefaultSheet = spreadsheet.getSheets().stream()
+                .anyMatch(sheet -> DEFAULT_SHEET.equals(sheet.getProperties().getTitle()));
+
+        if (!hasDefaultSheet) {
+            AddSheetRequest addSheetRequest = new AddSheetRequest();
+            addSheetRequest.setProperties(new SheetProperties().setTitle(DEFAULT_SHEET));
+
+            Request request = new Request().setAddSheet(addSheetRequest);
+            sheetsService.spreadsheets().batchUpdate(spreadsheetId,
+                    new BatchUpdateSpreadsheetRequest().setRequests(List.of(request))).execute();
+        }
     }
 }

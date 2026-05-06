@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.example.e2etests.Util.createHeaders;
+import static org.example.e2etests.HttpHeadersTestUtils.createHeaders;
 
 @Slf4j
 public class ProjectsImportTest extends E2eTestBase {

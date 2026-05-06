@@ -3,9 +3,9 @@ package org.example.e2etests;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
-public final class Util {
+public final class HttpHeadersTestUtils {
 
-    private Util() {
+    private HttpHeadersTestUtils() {
     }
 
     public static HttpHeaders createHeaders(String jwtSecret) {
