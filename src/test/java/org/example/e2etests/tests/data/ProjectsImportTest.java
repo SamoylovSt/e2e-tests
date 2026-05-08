@@ -11,14 +11,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.test.jdbc.JdbcTestUtils;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.*;
+import java.util.Base64;
+import java.util.Date;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
@@ -28,16 +29,12 @@ import static org.example.e2etests.HttpHeadersTestUtils.createHeaders;
 @Slf4j
 public class ProjectsImportTest extends E2eTestBase {
 
-    private static boolean profileCreated = false;
 
     @BeforeEach
     void setUp() {
         jdbcTemplate.execute("TRUNCATE TABLE profile_service.project RESTART IDENTITY CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE project_service.projects RESTART IDENTITY CASCADE");
-        if (!profileCreated) {
-            profileCreate();
-            profileCreated = true;
-        }
+
         assertTableIsEmpty("project_service.projects");
         assertTableIsEmpty("profile_service.project");
         kafkaConsumer.seekToEnd(kafkaConsumer.assignment());
@@ -75,6 +72,7 @@ public class ProjectsImportTest extends E2eTestBase {
 
     @Test
     void shouldCreateProjectAndSaveToDatabaseAndGoogleSheetsFromTgBot() throws IOException, InterruptedException {
+        profileCreate();
         CreateProjectRequest requestBody = CreateProjectRequest.builder()
                 .authorTelegramUserId(123456789L)
                 .githubRepositoryUrl("https://github.com/zhukovsd/hangman-test")
@@ -170,20 +168,35 @@ public class ProjectsImportTest extends E2eTestBase {
     }
 
     private void profileCreate() {
-        Map<String, Object> details = new HashMap<>();
-        details.put("github_profile_url", "https://github.com/created_by_internal_request");
-        details.put("telegram_url", "https://t.me/created_by_internal_request");
+        Long id = jdbcTemplate.queryForObject(
+                """
+                        INSERT INTO profile_service.profiles (telegram_user_id)
+                        VALUES (?)
+                        RETURNING id
+                        """,
+                Long.class,
+                123456789L
+        );
+        jdbcTemplate.update(
+                """
+                        INSERT INTO profile_service.profiles_details
+                            (profile_id, detail_name, detail_value)
+                        VALUES (?, ?, ?)
+                        """,
+                id,
+                "github_profile_url",
+                "https://github.com/created_by_internal_request"
+        );
 
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("telegram_user_id", 123456789);
-        requestBody.put("details", details);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-        int port = profileService.getMappedPort(8080);
-        String host = profileService.getHost();
-
-        testRestTemplate.postForEntity("http://" + host + ":" + port + "/api/profile/internal/profile", entity, String.class);
+        jdbcTemplate.update(
+                """
+                        INSERT INTO profile_service.profiles_details 
+                            (profile_id, detail_name, detail_value) 
+                        VALUES (?, ?, ?)
+                        """,
+                id,
+                "telegram_url",
+                "https://t.me/created_by_internal_request"
+        );
     }
 }
