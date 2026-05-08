@@ -35,7 +35,7 @@ public class ProjectsImportTest extends E2eTestBase {
         jdbcTemplate.execute("TRUNCATE TABLE profile_service.project RESTART IDENTITY CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE project_service.projects RESTART IDENTITY CASCADE");
         if (!profileCreated) {
-            jdbcTemplate.update("INSERT INTO profile_service.profiles (id, telegram_user_id) VALUES (1, 123456789)");
+            profileCreate();
             profileCreated = true;
         }
         assertTableIsEmpty("project_service.projects");
@@ -48,6 +48,7 @@ public class ProjectsImportTest extends E2eTestBase {
     void clearTable() {
         jdbcTemplate.execute("TRUNCATE TABLE profile_service.project RESTART IDENTITY CASCADE");
         jdbcTemplate.execute("TRUNCATE TABLE project_service.projects RESTART IDENTITY CASCADE");
+
     }
 
     @Test
@@ -160,10 +161,29 @@ public class ProjectsImportTest extends E2eTestBase {
                 requestEntity,
                 String.class
         );
+
     }
 
     private void assertTableHasRecords(String tableName) {
         int count = JdbcTestUtils.countRowsInTable(jdbcTemplate, tableName);
         assertThat(count).isGreaterThan(0);
+    }
+
+    private void profileCreate() {
+        Map<String, Object> details = new HashMap<>();
+        details.put("github_profile_url", "https://github.com/created_by_internal_request");
+        details.put("telegram_url", "https://t.me/created_by_internal_request");
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("telegram_user_id", 123456789);
+        requestBody.put("details", details);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        int port = profileService.getMappedPort(8080);
+        String host = profileService.getHost();
+
+        testRestTemplate.postForEntity("http://" + host + ":" + port + "/api/profile/internal/profile", entity, String.class);
     }
 }
