@@ -59,5 +59,15 @@ TESTCONTAINER_DOCKER_IMAGES_TAG=dev ./gradlew test
     * Run → Edit Configurations...
     * В поле Active profiles введите: `ide`
 
+### Тестирование записи в гугл таблицы ProjectsImportTest
+| Переменная | Описание                |
+|---|-------------------------|
+| `GOOGLE_TEST_SPREADSHEET_ID ` | id тестовой таблицы     |
+| `GOOGLE_SOURCE_SPREADSHEET_ID` | id оригинальной таблицы |
+Таблица для тестов создаётся в Google Spreadsheets Фаил-Создать-таблица. К тестовой таблице должен быть доступ  сeрвисного аккаунта.
+Листы из оригинальной таблицы копируются в тестовую при запуске тестов, старые удаляются.
+
+
+
 ### Ссылки на репозиторий документации
 - [Системная аналитика e2e-tests](https://github.com/it-mentor-community-platform/meta/blob/main/system-analytics/e2e-tests.md)

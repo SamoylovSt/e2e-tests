@@ -2,6 +2,7 @@ package org.example.e2etests.tests.base;
 
 import io.jsonwebtoken.security.Keys;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.example.e2etests.config.GoogleSheetsClient;
 import org.example.e2etests.config.TestcontainersConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,15 +20,20 @@ import java.util.Base64;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfig.class)
 public abstract class E2eTestBase {
-
+    @Value("${jwt.secret}")
+    protected String jwtSecret;
+    @Value("${telegram.init-data}")
+    protected String telegramInitData;
+    @Value("${telegram.updated-init-data}")
+    protected String updatedTelegramInitData;
+    @Value("${GOOGLE_TEST_SPREADSHEET_ID}")
+    protected String testSpreadsheetId;
+    @Autowired
+    protected GoogleSheetsClient googleSheetsHelper;
     @Autowired
     protected KafkaConsumer<String, String> kafkaConsumer;
-    @Value("${jwt.secret}")
-    protected String secret;
     @Autowired
     protected JdbcTemplate jdbcTemplate;
-    @Autowired
-    protected TestRestTemplate restTemplate;
     @Autowired
     protected PostgreSQLContainer<?> postgres;
     @Autowired
@@ -48,15 +54,6 @@ public abstract class E2eTestBase {
     protected GenericContainer<?> jobMarketAnalytics;
     @Autowired
     protected TestRestTemplate testRestTemplate;
-
-    @Value("${jwt.secret}")
-    protected String jwtSecret;
-
-    @Value("${telegram.init-data}")
-    protected String telegramInitData;
-
-    @Value("${telegram.updated-init-data}")
-    protected String updatedTelegramInitData;
 
     protected SecretKey secretKey() {
         return Keys.hmacShaKeyFor(Base64.getDecoder().decode(jwtSecret));

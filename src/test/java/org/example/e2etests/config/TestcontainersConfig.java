@@ -1,14 +1,15 @@
 package org.example.e2etests.config;
 
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @TestConfiguration(proxyBeanMethods = false)
 @SuppressWarnings("resource")
 @EnableConfigurationProperties(DockerImageTagsProperties.class)
@@ -63,14 +65,33 @@ public class TestcontainersConfig {
     @Value("${GOOGLE_APPLICATION_CREDENTIALS_JSON}")
     private String googleCredentialsJson;
 
-    @PostConstruct
-    void init() {
-        googleCredentialsJson = stripQuotes(googleCredentialsJson);
-    }
+
+    private GoogleSheetsClient googleSheetsClient;
+
+    @Value("${GOOGLE_SOURCE_SPREADSHEET_ID}")
+    private String sourceSpreadsheetId;
+
+    @Value("${GOOGLE_TEST_SPREADSHEET_ID}")
+    private String testSpreadsheetId;
 
     @Bean
     Network network() {
         return Network.newNetwork();
+    }
+
+    @PostConstruct
+    void init() throws Exception {
+        googleCredentialsJson = stripQuotes(googleCredentialsJson);
+        googleSheetsClient = new GoogleSheetsClient(googleCredentialsJson);
+
+        googleSheetsClient.copyToExistingSpreadsheet(sourceSpreadsheetId, testSpreadsheetId);
+
+        log.info("Data copied to test spreadsheet: {}", testSpreadsheetId);
+    }
+
+    @Bean
+    GoogleSheetsClient googleSheetsTestHelper() {
+        return googleSheetsClient;
     }
 
     @Bean
@@ -139,8 +160,9 @@ public class TestcontainersConfig {
     @Bean
     GenericContainer<?> dataImporter(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
         return springService("data-importer/data-importer", resolveTag(tags.getDataImporter()), network)
-                .withNetworkAliases("data-importer")
                 .withEnv("GOOGLE_APPLICATION_CREDENTIALS_JSON", googleCredentialsJson)
+                .withEnv("DATAIMPORTER_PROJECT-SPREADSHEET-ID", testSpreadsheetId)
+                .withNetworkAliases("data-importer")
                 .withEnv("JWT_SECRET", jwtSecret)
                 .dependsOn(postgres, kafka);
     }
@@ -173,7 +195,6 @@ public class TestcontainersConfig {
                 .withNetworkAliases("job-market-analytics-service")
                 .withEnv("HH_APP_ACCESS_TOKEN", hhAppAccessToken)
                 .withEnv("HH_APP_EMAIL", hhAppEmail)
-                .withNetworkAliases("job-market-analytics-service")
                 .dependsOn(postgres, kafka);
     }
 

@@ -5,9 +5,9 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.example.e2etests.tests.base.E2eTestBase;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.test.jdbc.JdbcTestUtils;
 
 import javax.crypto.SecretKey;
@@ -17,9 +17,17 @@ import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.example.e2etests.HttpHeadersTestUtils.createHeaders;
 
 @Slf4j
 public class DataImporterE2eTest extends E2eTestBase {
+
+    @AfterEach
+    void setUp() {
+        jdbcTemplate.execute("TRUNCATE TABLE auth_service.users RESTART IDENTITY CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE profile_service.profiles RESTART IDENTITY CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE project_service.projects RESTART IDENTITY CASCADE");
+    }
 
     @Test
     void shouldImportUsersAndSendMessagesToKafka() throws InterruptedException {
@@ -38,7 +46,7 @@ public class DataImporterE2eTest extends E2eTestBase {
     }
 
     @Test
-    void shouldImportProfiles() throws InterruptedException {
+    void shouldImportProfilesAndProjects() throws InterruptedException {
         assertTableIsEmpty("profile_service.profiles");
 
         startImport("/api/data-importer/start-profiles-import");
@@ -46,13 +54,9 @@ public class DataImporterE2eTest extends E2eTestBase {
         Thread.sleep(10_000);
 
         assertTableHasRecords("profile_service.profiles");
-    }
 
-    @Test
-    void shouldImportProjectsAndSendMessagesToKafka() throws InterruptedException {
         assertTableIsEmpty("project_service.projects");
         kafkaConsumer.subscribe(List.of("projects.project.created"));
-
         startImport("/api/data-importer/start-projects-import");
 
         Thread.sleep(10_000);
@@ -70,10 +74,10 @@ public class DataImporterE2eTest extends E2eTestBase {
     }
 
     private String createAdminToken() {
-        SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(secret));
+        SecretKey key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(jwtSecret));
         Date now = new Date();
         return Jwts.builder()
-                .subject("1")
+                .subject("123456789")
                 .claim("roles", List.of("ADMIN"))
                 .claim("telegram_username", "e2e_test_admin")
                 .issuedAt(now)
@@ -82,23 +86,16 @@ public class DataImporterE2eTest extends E2eTestBase {
                 .compact();
     }
 
-    private HttpHeaders createHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Access-Token", createAdminToken());
-        return headers;
-    }
-
     private void assertTableHasRecords(String tableName) {
         int count = JdbcTestUtils.countRowsInTable(jdbcTemplate, tableName);
         assertThat(count).isGreaterThan(0);
     }
 
     private void startImport(String path) {
-        restTemplate.postForEntity(
+        testRestTemplate.postForEntity(
                 path,
-                new HttpEntity<>(createHeaders()),
+                new HttpEntity<>(createHeaders(createAdminToken())),
                 String.class
         );
     }
-
 }
