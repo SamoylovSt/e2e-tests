@@ -50,14 +50,13 @@ public class GoogleSheetsClient {
                 DeleteSheetRequest deleteRequest = new DeleteSheetRequest();
                 deleteRequest.setSheetId(sheet.getProperties().getSheetId());
                 sheetsService.spreadsheets().batchUpdate(targetSpreadsheetId,
-                        new BatchUpdateSpreadsheetRequest()
-                                .setRequests(List.of(new Request().setDeleteSheet(deleteRequest))))
+                                new BatchUpdateSpreadsheetRequest()
+                                        .setRequests(List.of(new Request().setDeleteSheet(deleteRequest))))
                         .execute();
             }
         }
 
-        Map<Integer, String> copiedSheetIdMapping = new HashMap<>();
-
+        List<Request> renameRequests = new ArrayList<>();
         for (Sheet sourceSheet : sourceSheets) {
             Integer sourceSheetId = sourceSheet.getProperties().getSheetId();
             String sourceSheetName = sourceSheet.getProperties().getTitle();
@@ -69,17 +68,11 @@ public class GoogleSheetsClient {
                     .copyTo(sourceSpreadsheetId, sourceSheetId, copyRequest)
                     .execute();
 
-            copiedSheetIdMapping.put(copiedProperties.getSheetId(), sourceSheetName);
-        }
-
-        List<Request> renameRequests = new ArrayList<>();
-        for (Integer sheetId : copiedSheetIdMapping.keySet()) {
-            String originalName = copiedSheetIdMapping.get(sheetId);
             renameRequests.add(new Request().setUpdateSheetProperties(
                     new UpdateSheetPropertiesRequest()
                             .setProperties(new SheetProperties()
-                                    .setSheetId(sheetId)
-                                    .setTitle(originalName))
+                                    .setSheetId(copiedProperties.getSheetId())
+                                    .setTitle(sourceSheetName))
                             .setFields("title")));
         }
 
