@@ -14,11 +14,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @Slf4j
 public class GoogleSheetsClient {
@@ -45,35 +41,48 @@ public class GoogleSheetsClient {
         Spreadsheet source = sheetsService.spreadsheets().get(sourceSpreadsheetId).execute();
         List<Sheet> sourceSheets = source.getSheets();
 
-        Spreadsheet target = sheetsService.spreadsheets().get(targetSpreadsheetId).execute();
+        Spreadsheet target = sheetsService.spreadsheets().get(targetSpreadsheetId)
+                .setFields("sheets(properties(sheetId,title))")
+                .execute();
+
         for (Sheet sheet : target.getSheets()) {
             if (!sheet.getProperties().getTitle().equals(DEFAULT_SHEET)) {
                 DeleteSheetRequest deleteRequest = new DeleteSheetRequest();
                 deleteRequest.setSheetId(sheet.getProperties().getSheetId());
                 sheetsService.spreadsheets().batchUpdate(targetSpreadsheetId,
-                        new BatchUpdateSpreadsheetRequest().setRequests(List.of(new Request().setDeleteSheet(deleteRequest)))).execute();
+                        new BatchUpdateSpreadsheetRequest()
+                                .setRequests(List.of(new Request().setDeleteSheet(deleteRequest))))
+                        .execute();
             }
         }
 
-        for (Sheet sheet : sourceSheets) {
-            sheetsService.spreadsheets().sheets().copyTo(sourceSpreadsheetId, sheet.getProperties().getSheetId(),
-                    new CopySheetToAnotherSpreadsheetRequest().setDestinationSpreadsheetId(targetSpreadsheetId)).execute();
+        Map<Integer, String> copiedSheetIdMapping = new HashMap<>();
+
+        for (Sheet sourceSheet : sourceSheets) {
+            Integer sourceSheetId = sourceSheet.getProperties().getSheetId();
+            String sourceSheetName = sourceSheet.getProperties().getTitle();
+
+            CopySheetToAnotherSpreadsheetRequest copyRequest = new CopySheetToAnotherSpreadsheetRequest()
+                    .setDestinationSpreadsheetId(targetSpreadsheetId);
+
+            SheetProperties copiedProperties = sheetsService.spreadsheets().sheets()
+                    .copyTo(sourceSpreadsheetId, sourceSheetId, copyRequest)
+                    .execute();
+
+            copiedSheetIdMapping.put(copiedProperties.getSheetId(), sourceSheetName);
         }
 
-        target = sheetsService.spreadsheets().get(targetSpreadsheetId).execute();
         List<Request> renameRequests = new ArrayList<>();
-        Set<String> existing = target.getSheets().stream().map(s -> s.getProperties().getTitle()).collect(Collectors.toSet());
-        for (Sheet sheet : target.getSheets()) {
-            String name = sheet.getProperties().getTitle();
-            if (name.contains("(копия)")) {
-                String newName = name.replaceAll("\\s*\\(копия\\)\\s*\\d*", "").trim();
-                if (!existing.contains(newName)) {
-                    renameRequests.add(new Request().setUpdateSheetProperties(
-                            new UpdateSheetPropertiesRequest().setProperties(new SheetProperties()
-                                    .setSheetId(sheet.getProperties().getSheetId()).setTitle(newName)).setFields("title")));
-                }
-            }
+        for (Integer sheetId : copiedSheetIdMapping.keySet()) {
+            String originalName = copiedSheetIdMapping.get(sheetId);
+            renameRequests.add(new Request().setUpdateSheetProperties(
+                    new UpdateSheetPropertiesRequest()
+                            .setProperties(new SheetProperties()
+                                    .setSheetId(sheetId)
+                                    .setTitle(originalName))
+                            .setFields("title")));
         }
+
         if (!renameRequests.isEmpty()) {
             sheetsService.spreadsheets().batchUpdate(targetSpreadsheetId,
                     new BatchUpdateSpreadsheetRequest().setRequests(renameRequests)).execute();
