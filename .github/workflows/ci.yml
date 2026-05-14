@@ -42,7 +42,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: SamoylovSt
+          username: samoylovst
           password: ${{ secrets.TOKEN_FORK }}
 
 
