@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 public class TestcontainersConfig {
 
     private static final String GHCR = "ghcr.io/it-mentor-community-platform";
-
+    private static final String GHCR_MINE = "ghcr.io/samoylovst";
     private static final List<String> REQUIRED_TOPICS = List.of(
             "auth.user.created",
             "auth.user.authenticated",
@@ -176,7 +176,7 @@ public class TestcontainersConfig {
 
     @Bean
     GenericContainer<?> projectService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
-        return springService("project-service/project-service", resolveTag(tags.getProjectService()), network)
+        return springServiceProject("project-service/project-service", resolveTag(tags.getProjectService()), network)
                 .withNetworkAliases("project-service")
                 .dependsOn(postgres, kafka);
     }
@@ -213,6 +213,21 @@ public class TestcontainersConfig {
     private GenericContainer<?> springService(String imagePath, String tag, Network network) {
         String serviceName = imagePath.substring(imagePath.lastIndexOf('/') + 1);
         return new GenericContainer<>(GHCR + "/" + imagePath + ":" + tag)
+                .withNetwork(network)
+                .withEnv("SPRING_PROFILES_ACTIVE", "local-stack")
+                .withEnv("SPRING_KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
+                .withExposedPorts(8080)
+                .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(serviceName)))
+                .waitingFor(
+                        Wait.forHttp("/actuator/health")
+                                .forPort(8080)
+                                .forStatusCode(200)
+                                .withStartupTimeout(Duration.ofMinutes(5))
+                );
+    }
+    private GenericContainer<?> springServiceProject(String imagePath, String tag, Network network) {
+        String serviceName = imagePath.substring(imagePath.lastIndexOf('/') + 1);
+        return new GenericContainer<>(GHCR_MINE + "/" + imagePath + ":" + tag)
                 .withNetwork(network)
                 .withEnv("SPRING_PROFILES_ACTIVE", "local-stack")
                 .withEnv("SPRING_KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
