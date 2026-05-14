@@ -45,6 +45,7 @@ jobs:
           username: SamoylovSt
           password: ${{ secrets.TOKEN_FORK }}
 
+
       - name: Run E2E tests
         env:
           GATEWAY_DOCKER_IMAGE_TAG: ${{ github.event.client_payload.gateway_tag || 'dev' }}
