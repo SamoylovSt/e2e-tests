@@ -176,7 +176,7 @@ public class TestcontainersConfig {
 
     @Bean
     GenericContainer<?> projectService(Network network, PostgreSQLContainer<?> postgres, KafkaContainer kafka) {
-        return springServiceProject("project-service/project-service", resolveTag(tags.getProjectService()), network)
+        return springServiceProject( resolveTag(tags.getProjectService()), network)
                 .withNetworkAliases("project-service")
                 .dependsOn(postgres, kafka);
     }
@@ -225,14 +225,13 @@ public class TestcontainersConfig {
                                 .withStartupTimeout(Duration.ofMinutes(5))
                 );
     }
-    private GenericContainer<?> springServiceProject(String imagePath, String tag, Network network) {
-        String serviceName = imagePath.substring(imagePath.lastIndexOf('/') + 1);
-        return new GenericContainer<>(GHCR_MINE + "/" + imagePath + ":" + tag)
+    private GenericContainer<?> springServiceProject(String tag, Network network) {
+        return new GenericContainer<>(GHCR_MINE + "/project-service:" + tag)
                 .withNetwork(network)
                 .withEnv("SPRING_PROFILES_ACTIVE", "local-stack")
                 .withEnv("SPRING_KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
                 .withExposedPorts(8080)
-                .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(serviceName)))
+                .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("project-service")))
                 .waitingFor(
                         Wait.forHttp("/actuator/health")
                                 .forPort(8080)
