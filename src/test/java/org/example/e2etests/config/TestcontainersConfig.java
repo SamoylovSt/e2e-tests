@@ -227,7 +227,7 @@ public class TestcontainersConfig {
     }
     private GenericContainer<?> springServiceProject(String imagePath, String tag, Network network) {
         String serviceName = imagePath.substring(imagePath.lastIndexOf('/') + 1);
-        return new GenericContainer<>(GHCR_MINE + "/" + imagePath + ":" + tag)
+        return new GenericContainer<>(GHCR_MINE + "/project-service:" + tag)
                 .withNetwork(network)
                 .withEnv("SPRING_PROFILES_ACTIVE", "local-stack")
                 .withEnv("SPRING_KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
