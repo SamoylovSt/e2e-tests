@@ -42,8 +42,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: SamoylovSt
+          password: ${{ secrets.TOKEN_FORK }}
 
       - name: Run E2E tests
         env:
